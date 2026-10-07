@@ -9,6 +9,7 @@
  *  3. Собирает заполненные поля, пропуская пароли, карты и служебные поля,
  *     и угадывает, где имя, телефон и email.
  *  4. Отправляет заявку на сервер Formcatch через sendBeacon.
+ *  5. Если на всём сайте нет ни одной формы — показывает свою кнопку «Оставить заявку».
  * Скрипт ничего не отменяет и не меняет на сайте: любая ошибка внутри глушится.
  */
 (function () {
@@ -17,7 +18,7 @@
   if (window.__formcatchLoaded) return; // защита от двойного подключения
   window.__formcatchLoaded = true;
 
-  var VERSION = '0.3.0';
+  var VERSION = '0.4.0';
   var MAX_FIELDS = 50;
   var MAX_VALUE = 1000;
   var DEDUP_MS = 2000;
@@ -30,6 +31,7 @@
   var ENDPOINT = (script && script.getAttribute('data-endpoint')) || DEFAULT_ENDPOINT;
   if (ENDPOINT === 'none') ENDPOINT = ''; // для тестов: ничего никуда не отправлять
   var DEBUG = !!(script && script.hasAttribute('data-debug'));
+  var FALLBACK = !(script && script.getAttribute('data-fallback') === 'off'); // запасная мини-форма
 
   if (!SITE) {
     if (window.console) console.warn('[Formcatch] нет атрибута data-site — скрипт выключен');
@@ -333,6 +335,204 @@
       }
     } catch (err) { if (DEBUG) console.error('[Formcatch]', err); }
   }, true);
+
+  // --- 3. Запасная мини-форма ---
+  // Показываем кнопку «Оставить заявку», только если на ВСЁМ сайте нет форм.
+  // Страница с формой один раз сообщает серверу «форма есть» (sites.form_found).
+  // Страница без форм спрашивает сервер и показывает кнопку, только если формы не видели нигде.
+  var FORM_IFRAME = /google\.com\/forms|forms\.gle|typeform|jotform|tally\.so|formstack|cognitoforms|hsforms|hubspot|forms\.yandex|webask|anketolog|calendly|bitrix|amocrm/i;
+  var FOUND_KEY = 'formcatch:form-found:' + SITE;
+
+  function pageHasForm() {
+    var forms = document.forms;
+    for (var i = 0; i < forms.length; i++) if (!isSearchForm(forms[i]) && collectable(forms[i])) return true;
+    // «Формы» без тега <form>: поле ввода вне форм (не поиск)
+    var els = document.querySelectorAll('input, textarea, select');
+    for (var j = 0; j < els.length; j++) {
+      var el = els[j];
+      var type = (el.type || el.tagName).toLowerCase();
+      if (el.form || SKIP_TYPES.test(type) || type === 'search' || type === 'checkbox' || type === 'radio') continue;
+      if (SEARCH_NAME.test(el.name || '') || /search|поиск/i.test(el.getAttribute('placeholder') || '')) continue;
+      return true;
+    }
+    // Встроенные формы сервисов (Google Forms, Typeform…): перехватить нельзя, но форма у сайта есть
+    var frames = document.querySelectorAll('iframe[src]');
+    for (var k = 0; k < frames.length; k++) if (FORM_IFRAME.test(frames[k].src)) return true;
+    return false;
+  }
+
+  // В форме есть хоть одно поле, куда человек что-то вводит
+  function collectable(form) {
+    var els = form.querySelectorAll('input, textarea, select');
+    for (var i = 0; i < els.length; i++) {
+      var type = (els[i].type || els[i].tagName).toLowerCase();
+      if (!SKIP_TYPES.test(type) && type !== 'search') return true;
+    }
+    return false;
+  }
+
+  function storage(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem(key);
+      localStorage.setItem(key, value);
+    } catch (e) { /* приватный режим — просто спросим сервер ещё раз */ }
+    return null;
+  }
+
+  // Запрос к серверу: form=true — «на этой странице есть форма». Ответ: found | none | unknown_site
+  function ping(form, done) {
+    if (!ENDPOINT || !window.fetch) return done && done('');
+    fetch(ENDPOINT + '?site=' + encodeURIComponent(SITE) + (form ? '&form=1' : ''), { credentials: 'omit' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (done) done(j && j.result); })
+      .catch(function () { if (done) done(''); });
+  }
+
+  function reportForm() {
+    if (storage(FOUND_KEY) === '1') return;
+    ping(true, function (result) { if (result === 'found') storage(FOUND_KEY, '1'); });
+  }
+
+  var TEXTS = {
+    ru: {
+      open: 'Оставить заявку', title: 'Оставьте заявку — мы свяжемся с вами',
+      name: 'Ваше имя', phone: 'Телефон', send: 'Отправить', close: 'Закрыть',
+      noName: 'Укажите имя', badPhone: 'Проверьте номер телефона',
+      thanks: 'Спасибо! Заявка отправлена, скоро с вами свяжутся.'
+    },
+    en: {
+      open: 'Leave a request', title: 'Leave your details and we will contact you',
+      name: 'Your name', phone: 'Phone', send: 'Send', close: 'Close',
+      noName: 'Please enter your name', badPhone: 'Please check the phone number',
+      thanks: 'Thank you! Your request has been sent.'
+    }
+  };
+
+  function texts() {
+    var lang = (document.documentElement.lang || navigator.language || 'ru').slice(0, 2).toLowerCase();
+    return /^(ru|uk|be|kk|ky)$/.test(lang) ? TEXTS.ru : TEXTS.en;
+  }
+
+  var CSS =
+    ':host{all:initial}' +
+    '*{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+    '.fc{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:2147483646;display:flex;flex-direction:column;align-items:flex-end;gap:10px}' +
+    '.open{min-height:48px;padding:0 22px;border:0;border-radius:999px;background:#1d1f24;color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25)}' +
+    '.open:focus-visible,.send:focus-visible,.x:focus-visible,input:focus-visible{outline:3px solid #2f6fed;outline-offset:2px}' +
+    '.panel{width:320px;max-width:calc(100vw - 32px);padding:20px;border-radius:16px;background:#fff;color:#1d1f24;box-shadow:0 12px 40px rgba(0,0,0,.25)}' +
+    '.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}' +
+    '.title{margin:0;font-size:17px;font-weight:600;line-height:1.35}' +
+    '.x{flex:none;width:32px;height:32px;margin:-6px -6px 0 0;border:0;border-radius:8px;background:none;color:#5b616e;font-size:22px;line-height:1;cursor:pointer}' +
+    'label{display:block;margin-bottom:12px;font-size:14px;color:#3c414b}' +
+    'input{display:block;width:100%;height:44px;margin-top:4px;padding:0 12px;border:1px solid #c9cdd4;border-radius:10px;background:#fff;color:#1d1f24;font-size:16px}' +
+    '.err{min-height:20px;margin:0 0 8px;color:#c62828;font-size:14px}' +
+    '.send{width:100%;height:46px;border:0;border-radius:10px;background:#1d1f24;color:#fff;font-size:16px;font-weight:600;cursor:pointer}' +
+    '.thanks{margin:0;font-size:16px;line-height:1.45}' +
+    '[hidden]{display:none!important}';
+
+  var fallbackHost = null;
+
+  function showFallback() {
+    if (fallbackHost || !document.body || !document.body.attachShadow) return;
+    var t = texts();
+    fallbackHost = document.createElement('div');
+    fallbackHost.setAttribute('data-formcatch', 'fallback');
+    // Shadow DOM: стили сайта не ломают кнопку, а наши стили не трогают сайт
+    var root = fallbackHost.attachShadow({ mode: 'open' });
+    root.innerHTML =
+      '<style>' + CSS + '</style>' +
+      '<div class="fc">' +
+        '<div class="panel" role="dialog" aria-labelledby="fc-title" hidden>' +
+          '<div class="head"><p class="title" id="fc-title"></p><button type="button" class="x">×</button></div>' +
+          '<form novalidate>' +
+            '<label><span class="l-name"></span><input name="name" autocomplete="name" maxlength="100"></label>' +
+            '<label><span class="l-phone"></span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="40"></label>' +
+            '<p class="err" role="alert"></p>' +
+            '<button type="submit" class="send"></button>' +
+          '</form>' +
+          '<p class="thanks" hidden></p>' +
+        '</div>' +
+        '<button type="button" class="open" aria-expanded="false"></button>' +
+      '</div>';
+
+    function $(sel) { return root.querySelector(sel); }
+    var panel = $('.panel'), openBtn = $('.open'), form = $('form'), err = $('.err');
+    var nameInput = $('input[name="name"]'), phoneInput = $('input[name="phone"]');
+    $('.title').textContent = t.title;
+    $('.l-name').textContent = t.name;
+    $('.l-phone').textContent = t.phone;
+    $('.send').textContent = t.send;
+    $('.thanks').textContent = t.thanks;
+    $('.x').setAttribute('aria-label', t.close);
+    openBtn.textContent = t.open;
+
+    function toggle(open) {
+      panel.hidden = !open;
+      openBtn.hidden = open;
+      openBtn.setAttribute('aria-expanded', String(open));
+      if (open) nameInput.focus(); else openBtn.focus();
+    }
+    openBtn.addEventListener('click', function () { toggle(true); });
+    $('.x').addEventListener('click', function () { toggle(false); });
+    panel.addEventListener('keydown', function (e) { if (e.key === 'Escape') toggle(false); });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      try {
+        var name = nameInput.value.trim();
+        var phone = phoneInput.value.trim();
+        if (!name) { err.textContent = t.noName; nameInput.focus(); return; }
+        if (!isPhoneValue(phone)) { err.textContent = t.badPhone; phoneInput.focus(); return; }
+        err.textContent = '';
+        send([
+          { label: t.name, name: 'name', type: 'text', value: name.slice(0, 100), role: 'name' },
+          { label: t.phone, name: 'phone', type: 'tel', value: phone.slice(0, 40), role: 'phone' }
+        ], 'fallback');
+        form.hidden = true;
+        $('.thanks').hidden = false;
+      } catch (ex) { if (DEBUG) console.error('[Formcatch]', ex); }
+    });
+
+    document.body.appendChild(fallbackHost);
+    watchForForms();
+    if (DEBUG && window.console) console.log('[Formcatch] на сайте нет форм — показана кнопка «Оставить заявку»');
+  }
+
+  function hideFallback() {
+    if (fallbackHost && fallbackHost.parentNode) fallbackHost.parentNode.removeChild(fallbackHost);
+    fallbackHost = null;
+  }
+
+  // Форма появилась позже (попап, ленивая загрузка) — у сайта есть форма, наша кнопка не нужна
+  function watchForForms() {
+    if (!window.MutationObserver) return;
+    var timer = null;
+    var observer = new MutationObserver(function () {
+      if (timer) return;
+      timer = setTimeout(function () {
+        timer = null;
+        if (!fallbackHost) { observer.disconnect(); return; }
+        if (pageHasForm()) { observer.disconnect(); hideFallback(); reportForm(); }
+      }, 500);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function initFallback() {
+    try {
+      if (pageHasForm()) { reportForm(); return; }
+      if (!FALLBACK || storage(FOUND_KEY) === '1') return;
+      ping(false, function (result) {
+        if (result === 'found') { storage(FOUND_KEY, '1'); return; }
+        if (result === 'none' && !pageHasForm()) showFallback();
+      });
+    } catch (err) { if (DEBUG) console.error('[Formcatch]', err); }
+  }
+
+  // Ждём, пока конструктор сайта дорисует страницу (формы часто появляются не сразу)
+  function later() { setTimeout(initFallback, 1500); }
+  if (document.readyState === 'complete') later();
+  else window.addEventListener('load', later);
 
   if (DEBUG && window.console) console.log('[Formcatch] запущен, сайт:', SITE);
 })();

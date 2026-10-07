@@ -23,7 +23,7 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, secretKey(), {
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'content-type',
 };
 
@@ -56,8 +56,39 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Домен сайта, с которого пришёл запрос (заголовок Origin ставит браузер)
+function originDomain(req: Request): string {
+  try {
+    return new URL(req.headers.get('origin') ?? '').hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+// GET ?site=ID[&form=1] — есть ли на сайте форма (для запасной мини-формы).
+// form=1: «на этой странице есть форма» — запомнить. Ответ: found | none | unknown_site
+async function ping(req: Request) {
+  const url = new URL(req.url);
+  const site = str(url.searchParams.get('site'), 64);
+  if (!site) return reply(400, 'bad_request');
+  const domain = originDomain(req);
+  if (!domain) return reply(403, 'no_origin');
+
+  const { data, error } = await db.rpc('site_ping', {
+    p_site: site,
+    p_domain: domain,
+    p_form: url.searchParams.get('form') === '1',
+  });
+  if (error) {
+    console.error('site_ping error', error);
+    return reply(500, 'db_error');
+  }
+  return reply(data === 'unknown_site' ? 404 : 200, data as string);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (req.method === 'GET') return ping(req);
   if (req.method !== 'POST') return reply(405, 'method_not_allowed');
 
   // 1. Разбор заявки
@@ -106,11 +137,8 @@ Deno.serve(async (req) => {
     return reply(202, 'ignored');
   }
 
-  // 3. Домен сайта, с которого пришла заявка (заголовок Origin ставит браузер)
-  let domain = '';
-  try {
-    domain = new URL(req.headers.get('origin') ?? '').hostname.toLowerCase().replace(/^www\./, '');
-  } catch { /* нет Origin */ }
+  // 3. Домен сайта, с которого пришла заявка
+  const domain = originDomain(req);
   if (!domain) return reply(403, 'no_origin');
 
   // 4. Хэш IP — для лимита заявок. Сам IP не храним.
