@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formcatch — тестовый стенд</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; font: 16px/1.5 system-ui, sans-serif; background: #f4f5f7; color: #1d1f24; }
+  main { max-width: 800px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .lead { margin: 0 0 24px; color: #5b616e; }
+  .case { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .case h2 { margin: 0 0 4px; font-size: 18px; }
+  .expect { margin: 0 0 14px; font-size: 14px; color: #5b616e; }
+  .expect b { color: #1d1f24; }
+  label { display: block; margin-bottom: 10px; font-size: 14px; }
+  input, textarea { display: block; width: 100%; margin-top: 4px; padding: 9px 11px; border: 1px solid #c9cdd4; border-radius: 8px; font: inherit; }
+  button { padding: 10px 18px; border: 0; border-radius: 8px; background: #2f6fed; color: #fff; font: inherit; cursor: pointer; }
+  .ok { margin: 10px 0 0; color: #1a7f37; font-weight: 600; }
+  iframe { width: 100%; height: 190px; border: 1px dashed #c9cdd4; border-radius: 8px; }
+  .search { display: flex; gap: 8px; }
+  .search input { margin: 0; }
+  nav { margin-bottom: 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Formcatch — тестовый стенд</h1>
+  <p class="lead">Здесь собраны разные виды форм, которые встречаются на реальных сайтах. На каждой проверяем, что скрипт перехвата делает то, что ожидается.</p>
+  <nav><a href="/test-site/about.html">О нас (страница без форм)</a> · <a href="/test-site/no-forms/">Сайт вообще без форм</a></nav>
+
+  <!-- Случай 1 -->
+  <section class="case">
+    <h2>Случай 1: обычная форма</h2>
+    <p class="expect">Ожидаем: <b>заявка перехвачена</b>, браузер переходит на страницу «Спасибо».</p>
+    <!-- method=get: локальный тестовый сервер не принимает POST. Для перехвата разницы нет -->
+    <form method="get" action="/test-site/thanks.html">
+      <label>Имя <input type="text" name="name"></label>
+      <label>Телефон <input type="tel" name="phone"></label>
+      <label>Email <input type="email" name="email"></label>
+      <label>Сообщение <textarea name="message" rows="3"></textarea></label>
+      <button type="submit">Отправить</button>
+    </form>
+  </section>
+
+  <!-- Случай 2 -->
+  <section class="case">
+    <h2>Случай 2: AJAX-форма с непонятными именами полей</h2>
+    <p class="expect">Ожидаем: <b>заявка перехвачена</b>, поля названы по подписям («Ваше имя», «Телефон»), а не field_1 / field_2.</p>
+    <form id="ajax-form">
+      <label for="f1">Ваше имя</label>
+      <input id="f1" type="text" name="field_1">
+      <label for="f2" style="margin-top:10px">Телефон</label>
+      <input id="f2" type="text" name="field_2">
+      <p><button type="submit">Отправить</button></p>
+      <p class="ok" hidden></p>
+    </form>
+  </section>
+
+  <!-- Случай 3 -->
+  <section class="case">
+    <h2>Случай 3: форма с паролем и картой</h2>
+    <p class="expect">Ожидаем: перехвачены <b>только имя и логин</b>. Пароль, номер карты и CVC <b>не отправляются никогда</b>.</p>
+    <form id="secret-form">
+      <label>Имя <input type="text" name="name"></label>
+      <label>Логин <input type="text" name="login"></label>
+      <label>Пароль <input type="password" name="password"></label>
+      <label>Номер карты <input type="text" name="card_number" autocomplete="cc-number"></label>
+      <label>CVC <input type="text" name="cvc" autocomplete="cc-csc"></label>
+      <button type="submit">Оплатить</button>
+      <p class="ok" hidden></p>
+    </form>
+  </section>
+
+  <!-- Случай 4 -->
+  <section class="case">
+    <h2>Случай 4: «форма» без тега &lt;form&gt;</h2>
+    <p class="expect">Ожидаем: <b>заявка перехвачена</b> (так делают некоторые конструкторы сайтов).</p>
+    <div id="div-form">
+      <label>Имя <input type="text" name="client_name"></label>
+      <label>Телефон <input type="tel" name="client_phone"></label>
+      <button type="button">Оставить заявку</button>
+      <p class="ok" hidden></p>
+    </div>
+  </section>
+
+  <!-- Случай 5 -->
+  <section class="case">
+    <h2>Случай 5: форма-попап, появляется после загрузки</h2>
+    <p class="expect">Ожидаем: <b>заявка перехвачена</b>, хотя формы не было на странице при загрузке (как попапы Tilda).</p>
+    <button type="button" id="open-popup">Открыть форму</button>
+    <div id="popup-slot"></div>
+  </section>
+
+  <!-- Случай 6 -->
+  <section class="case">
+    <h2>Случай 6: форма внутри iframe</h2>
+    <p class="expect">Ожидаем: <b>НЕ перехвачена</b>. Браузер запрещает скриптам заглядывать в чужие iframe, это нормально.</p>
+    <iframe title="Форма в iframe" srcdoc="<!doctype html><html><body style='font:16px system-ui;margin:12px'><form onsubmit='event.preventDefault();this.querySelector(&quot;p&quot;).hidden=false'><label>Имя<br><input name='name'></label><br><br><label>Телефон<br><input type='tel' name='phone'></label><br><br><button>Отправить</button><p hidden style='color:#1a7f37'>Спасибо!</p></form></body></html>"></iframe>
+  </section>
+
+  <!-- Случай 7 -->
+  <section class="case">
+    <h2>Случай 7: поиск по сайту</h2>
+    <p class="expect">Ожидаем: <b>НЕ перехвачена</b>. Поиск — это не заявка клиента.</p>
+    <form role="search" id="search-form" class="search">
+      <input type="search" name="q" placeholder="Поиск по сайту">
+      <button type="submit">Найти</button>
+    </form>
+  </section>
+</main>
+
+<script>
+  // Имитация поведения сайта (это НЕ Formcatch, а «чужой» код сайта)
+  function showOk(box, text) { var p = box.querySelector('.ok'); p.textContent = text; p.hidden = false; }
+
+  // Случай 2: отправка через AJAX
+  document.getElementById('ajax-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var form = this;
+    setTimeout(function () { showOk(form, 'Спасибо, мы перезвоним!'); }, 500);
+  });
+
+  // Случай 3
+  document.getElementById('secret-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    showOk(this, 'Отправлено');
+  });
+
+  // Случай 4: кнопка без формы
+  document.querySelector('#div-form button').addEventListener('click', function () {
+    showOk(document.getElementById('div-form'), 'Спасибо!');
+  });
+
+  // Случай 5: форма создаётся только по клику
+  document.getElementById('open-popup').addEventListener('click', function () {
+    var slot = document.getElementById('popup-slot');
+    if (slot.firstChild) return;
+    var form = document.createElement('form');
+    form.style.marginTop = '14px';
+    form.innerHTML =
+      '<label>Имя <input type="text" name="name"></label>' +
+      '<label>Телефон <input type="tel" name="phone"></label>' +
+      '<button type="submit">Записаться</button>' +
+      '<p class="ok" hidden></p>';
+    form.addEventListener('submit', function (e) { e.preventDefault(); showOk(form, 'Спасибо!'); });
+    slot.appendChild(form);
+  });
+
+  // Случай 7
+  document.getElementById('search-form').addEventListener('submit', function (e) { e.preventDefault(); });
+</script>
+<script src="/widget/formcatch.js" data-site="test-site" defer></script>
+</body>
+</html>
