@@ -6,7 +6,8 @@
  *  1. Один обработчик submit на весь документ (фаза захвата) — ловит любые <form>,
  *     в том числе появившиеся после загрузки (попапы) и отправляемые через AJAX.
  *  2. Обработчик click — ловит «формы» без тега <form> (поля в div + кнопка).
- *  3. Собирает заполненные поля, пропуская пароли, карты и служебные поля.
+ *  3. Собирает заполненные поля, пропуская пароли, карты и служебные поля,
+ *     и угадывает, где имя, телефон и email.
  *  4. Отправляет заявку на сервер Formcatch через sendBeacon.
  * Скрипт ничего не отменяет и не меняет на сайте: любая ошибка внутри глушится.
  */
@@ -16,7 +17,7 @@
   if (window.__formcatchLoaded) return; // защита от двойного подключения
   window.__formcatchLoaded = true;
 
-  var VERSION = '0.2.0';
+  var VERSION = '0.3.0';
   var MAX_FIELDS = 50;
   var MAX_VALUE = 1000;
   var DEDUP_MS = 2000;
@@ -27,6 +28,7 @@
   var SITE = script && script.getAttribute('data-site');
   var DEFAULT_ENDPOINT = 'https://gdevndktdjppgmmusalo.supabase.co/functions/v1/collect';
   var ENDPOINT = (script && script.getAttribute('data-endpoint')) || DEFAULT_ENDPOINT;
+  if (ENDPOINT === 'none') ENDPOINT = ''; // для тестов: ничего никуда не отправлять
   var DEBUG = !!(script && script.hasAttribute('data-debug'));
 
   if (!SITE) {
@@ -118,18 +120,91 @@
       if (contactHidden && /^(phone|tel|telephone)$/i.test(name) && value) hasFullPhone = true;
       if (!value) continue;
       if (type !== 'search' && !SEARCH_NAME.test(el.name || '')) hasNonSearch = true;
-      fields.push({
-        label: labelOf(el, i),
+      var label = labelOf(el, i);
+      var field = {
+        label: label,
         name: el.name || el.id || '',
         type: type,
         value: value.slice(0, MAX_VALUE)
-      });
+      };
+      var role = roleOf(el, label, field.value);
+      if (role) field.role = role;
+      fields.push(field);
     }
     // Поиск по сайту — не заявка
     if (!hasNonSearch) return [];
     // Tilda: есть полный телефон с кодом страны — видимую часть номера убираем
     if (hasFullPhone) fields = fields.filter(function (f) { return !TILDA_PHONE_PART.test(f.name); });
     return fields;
+  }
+
+  // --- Автоугадывание: имя / телефон / email ---
+  // Подсказки берём из типа поля, autocomplete, подписи, name/id, placeholder;
+  // роль ставим, только если значение подходит по формату.
+  var EMAIL_HINT = /e-?mail|почт|мейл|мэйл|имейл/i;
+  var PHONE_HINT = /phone|телефон|(^|[^a-zа-яё])(тел|tel|моб|mob)([^a-zа-яё]|$)|mobile|мобильн|whats ?app|ватсап|вотсап|viber|вайбер/i;
+  var NAME_HINT = /(^|[^a-z])name|firstname|lastname|fullname|surname|имя|фио|ф\.\s?и\.\s?о|фамили|отчеств|обращаться|как вас зовут|контактное лицо|contact ?person/i;
+  // Похоже на имя/телефон, но не они
+  var NAME_NOT = /компани|company|организац|фирм|бренд|brand|логин|login|user ?name|пользовател|никнейм|nickname|назван|(^|[^a-z])(title|city|site|pet)([^a-z]|$)|город|улиц|street|адрес|address|товар|product|проект|project|домен|domain|сайт|ребен|child|питом/i;
+  var PHONE_NOT = /заказ|order|инн|снилс|паспорт|сч[её]т|account|индекс|zip|postal|промо|promo|кол-?во|количеств|сумм|цена|цены|price|возраст|(^|[^a-z])age([^a-z]|$)|дата|date/i;
+  // Подпись ни о чём не говорит: field_1, input_2, «Поле 3»
+  var GENERIC_LABEL = /^(field|input|text|fld|f|поле)[\s_-]*\d*$/i;
+
+  var EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  var NAME_VALUE = /^[A-Za-zÀ-ɏЀ-ӿ][A-Za-zÀ-ɏЀ-ӿ .'’-]{0,59}$/;
+
+  function isPhoneValue(v) {
+    if (!/^\+?[\d\s().-]+$/.test(v)) return false;
+    var digits = v.replace(/\D/g, '');
+    return digits.length >= 7 && digits.length <= 15;
+  }
+  // Телефон без всяких подсказок: только «телефонного вида» (+код или 10–12 цифр с 7/8 в начале)
+  function looksLikePhoneByItself(v) {
+    if (!isPhoneValue(v)) return false;
+    var digits = v.replace(/\D/g, '');
+    return v.charAt(0) === '+' || (/^[78]/.test(digits) && digits.length >= 10 && digits.length <= 12);
+  }
+
+  function roleOf(el, label, value) {
+    var tag = el.tagName;
+    var type = (el.type || '').toLowerCase();
+    if (tag === 'SELECT' || tag === 'TEXTAREA' || type === 'checkbox' || type === 'radio') return '';
+    var ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+    var hints = [label, el.name, el.id, el.getAttribute('placeholder'), el.getAttribute('aria-label')]
+      .join(' ').toLowerCase();
+
+    if (EMAIL_VALUE.test(value)) return 'email'; // email узнаётся по самому значению
+
+    var phoneHint = type === 'tel' || ac.indexOf('tel') === 0 || PHONE_HINT.test(hints);
+    if (phoneHint && !PHONE_NOT.test(label) && isPhoneValue(value)) return 'phone';
+
+    var nameHint = /^(name|given-name|family-name|additional-name)$/.test(ac) ||
+      (NAME_HINT.test(hints) && !NAME_NOT.test(hints));
+    if (nameHint && NAME_VALUE.test(value)) return 'name';
+
+    // Подписи нет вообще (field_1) — угадываем по самому значению
+    var generic = GENERIC_LABEL.test(label.trim()) || label === el.name || label === el.id;
+    if (generic && !PHONE_NOT.test(hints) && looksLikePhoneByItself(value)) return 'phone';
+    if (generic && !NAME_NOT.test(hints) && type !== 'number' && NAME_VALUE.test(value)) return 'maybe-name';
+    return '';
+  }
+
+  // Сводка контакта: имя (имя + фамилия через пробел), первый телефон, первый email
+  function contactOf(fields) {
+    var names = [], phone = '', email = '';
+    var hasSureName = fields.some(function (f) { return f.role === 'name'; });
+    fields.forEach(function (f) {
+      if (f.role === 'phone' && !phone) phone = f.value;
+      if (f.role === 'email' && !email) email = f.value;
+      if (f.role === 'name' && names.indexOf(f.value) === -1 && names.length < 3) names.push(f.value);
+    });
+    // Безымянное поле считаем именем, только если настоящего имени нет и оно одно такое
+    if (!hasSureName) {
+      var maybe = fields.filter(function (f) { return f.role === 'maybe-name'; });
+      if (maybe.length === 1) { maybe[0].role = 'name'; names.push(maybe[0].value); }
+    }
+    fields.forEach(function (f) { if (f.role === 'maybe-name') f.role = ''; });
+    return { name: names.join(' ').slice(0, 100), phone: phone, email: email };
   }
 
   function isSearchForm(form) {
@@ -151,12 +226,14 @@
     lastKey = key;
     lastTime = now;
 
+    var contact = contactOf(fields);
     var lead = {
       site: SITE,
       page: location.href,
       title: document.title,
       kind: kind,            // 'form' — обычная форма, 'formless' — без тега <form>
-      fields: fields,
+      fields: fields,        // у полей имени/телефона/email есть role: name | phone | email
+      contact: contact,      // сводка: { name, phone, email }
       sentAt: new Date().toISOString(),
       human: human,                                  // были ли реальные действия человека
       tp: Math.round(performance.now()),             // мс с открытия страницы

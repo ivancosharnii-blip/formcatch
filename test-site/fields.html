@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formcatch — угадывание полей</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; font: 16px/1.5 system-ui, sans-serif; background: #f4f5f7; color: #1d1f24; }
+  main { max-width: 800px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .lead { margin: 0 0 16px; color: #5b616e; }
+  #summary { margin: 0 0 20px; padding: 12px 16px; border-radius: 10px; font-weight: 600; background: #fff; }
+  #summary.pass { color: #1a7f37; }
+  #summary.fail { color: #c62828; }
+  .case { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .case h2 { margin: 0 0 4px; font-size: 18px; }
+  .expect { margin: 0 0 14px; font-size: 14px; color: #5b616e; }
+  label { display: block; margin-bottom: 10px; font-size: 14px; }
+  input, textarea { display: block; width: 100%; margin-top: 4px; padding: 9px 11px; border: 1px solid #c9cdd4; border-radius: 8px; font: inherit; }
+  button { padding: 10px 18px; border: 0; border-radius: 8px; background: #2f6fed; color: #fff; font: inherit; cursor: pointer; }
+  .result { margin: 12px 0 0; font-size: 14px; white-space: pre-wrap; }
+  .result.pass { color: #1a7f37; }
+  .result.fail { color: #c62828; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Угадывание полей</h1>
+  <p class="lead">Каждая форма уже заполнена. Страница сама «отправляет» их все и сверяет, что скрипт нашёл имя, телефон и email. Ожидание записано у каждой формы. На сервер ничего не уходит.</p>
+  <p id="summary">Проверяем…</p>
+
+  <section class="case">
+    <h2>1. Правильная разметка</h2>
+    <form data-expect='{"name":"Анна","phone":"+7 900 123-45-67","email":"anna@mail.ru"}'>
+      <label>Имя <input type="text" name="name" value="Анна"></label>
+      <label>Телефон <input type="tel" name="phone" value="+7 900 123-45-67"></label>
+      <label>Email <input type="email" name="email" value="anna@mail.ru"></label>
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>2. Как на Tilda: телефон в скрытом поле с кодом страны</h2>
+    <form data-expect='{"name":"Иван","phone":"+373 7011-1122","email":"ivan@gmail.com"}'>
+      <label>Ваше имя <input type="text" name="Name" value="Иван"></label>
+      <label>Email <input type="text" name="Email" value="ivan@gmail.com"></label>
+      <label>Телефон <input type="tel" name="tildaspec-phone-part[]" value="7011-1122"></label>
+      <input type="hidden" name="tildaspec-phone-part[]-iso" value="md">
+      <input type="hidden" name="Phone" value="+373 7011-1122">
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>3. Как в WordPress (Contact Form 7)</h2>
+    <form data-expect='{"name":"Мария","phone":"8 (912) 555-44-33","email":"maria@yandex.ru"}'>
+      <label>Ваше имя <input type="text" name="your-name" value="Мария"></label>
+      <label>Ваш email <input type="email" name="your-email" value="maria@yandex.ru"></label>
+      <label>Телефон <input type="tel" name="your-tel" value="8 (912) 555-44-33"></label>
+      <label>Сообщение <textarea name="your-message">Хочу записаться на пробное занятие</textarea></label>
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>4. Поля field_1, field_2, field_3 — но подписи есть</h2>
+    <form data-expect='{"name":"Олег","phone":"89001112233","email":"oleg@inbox.ru"}'>
+      <label>Как к вам обращаться? <input type="text" name="field_1" value="Олег"></label>
+      <label>Номер телефона <input type="text" name="field_2" value="89001112233"></label>
+      <label>Электронная почта <input type="text" name="field_3" value="oleg@inbox.ru"></label>
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>5. Подписей нет вообще — угадываем по значению</h2>
+    <form data-expect='{"name":"Светлана","phone":"+7 (921) 000-11-22","email":"sveta@mail.ru"}'>
+      <input type="text" name="field_1" value="Светлана">
+      <input type="text" name="field_2" value="+7 (921) 000-11-22">
+      <input type="text" name="field_3" value="sveta@mail.ru">
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>6. Ловушки: похоже на имя или телефон, но это не они</h2>
+    <form data-expect='{"name":"","phone":"","email":""}'>
+      <label>Название компании <input type="text" name="company" value="Ромашка"></label>
+      <label>Номер заказа <input type="text" name="order" value="12345678"></label>
+      <label>Логин <input type="text" name="login" value="ivan"></label>
+      <label>Город <input type="text" name="city" value="Москва"></label>
+      <label>Комментарий <textarea name="comment">Пишите на test@mail.ru или звоните +7 900 000-00-00</textarea></label>
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>7. Имя и фамилия в разных полях</h2>
+    <form data-expect='{"name":"Иван Петров","phone":"+375 29 123 45 67","email":""}'>
+      <label>Имя <input type="text" name="first_name" value="Иван"></label>
+      <label>Фамилия <input type="text" name="last_name" value="Петров"></label>
+      <label>Телефон (с кодом страны) <input type="text" name="contact" value="+375 29 123 45 67"></label>
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>8. Английский сайт, подсказки только в placeholder</h2>
+    <form data-expect='{"name":"John Smith","phone":"+1 415 555 0100","email":"john@example.com"}'>
+      <input type="text" name="a1" placeholder="Full name" value="John Smith">
+      <input type="text" name="a2" placeholder="Phone number" value="+1 415 555 0100">
+      <input type="text" name="a3" placeholder="Email address" value="john@example.com">
+      <button>Send</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>9. В поле телефона/почты написано не то</h2>
+    <form data-expect='{"name":"Дмитрий","phone":"","email":""}'>
+      <label>Имя <input type="text" name="name" value="Дмитрий"></label>
+      <label>Телефон <input type="text" name="phone" value="позвоните вечером"></label>
+      <label>Email <input type="text" name="email" value="нет"></label>
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>10. Только autocomplete, названия полей бессмысленные</h2>
+    <form data-expect='{"name":"Елена","phone":"+380 67 123 4567","email":"elena@ukr.net"}'>
+      <input type="text" name="x1" autocomplete="name" value="Елена">
+      <input type="text" name="x2" autocomplete="tel" value="+380 67 123 4567">
+      <input type="text" name="x3" autocomplete="email" value="elena@ukr.net">
+      <button>Отправить</button>
+    </form>
+  </section>
+
+  <section class="case">
+    <h2>11. «Форма» без тега form, с placeholder</h2>
+    <div class="formless" data-expect='{"name":"Айгерим","phone":"+7 701 234 56 78","email":""}'>
+      <input type="text" placeholder="Ваше имя" value="Айгерим">
+      <input type="text" placeholder="Телефон" value="+7 701 234 56 78">
+      <button type="button">Оставить заявку</button>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Все формы проверяются по очереди: «отправили» → ждём заявку от скрипта → сравниваем contact с ожиданием
+  document.querySelectorAll('form').forEach(function (f) {
+    f.addEventListener('submit', function (e) { e.preventDefault(); });
+  });
+
+  function show(box, text, ok) {
+    var p = document.createElement('p');
+    p.className = 'result ' + (ok ? 'pass' : 'fail');
+    p.textContent = text;
+    box.parentNode.appendChild(p);
+  }
+
+  window.addEventListener('load', function () {
+    var cases = document.querySelectorAll('[data-expect]');
+    var passed = 0, i = 0;
+    window.formcatchResults = [];
+
+    function next() {
+      if (i >= cases.length) {
+        var s = document.getElementById('summary');
+        s.textContent = 'Пройдено ' + passed + ' из ' + cases.length;
+        s.className = passed === cases.length ? 'pass' : 'fail';
+        return;
+      }
+      var box = cases[i++];
+      var expect = JSON.parse(box.getAttribute('data-expect'));
+      var got = null;
+      function onLead(e) { got = e.detail.contact; }
+      document.addEventListener('formcatch:lead', onLead);
+      if (box.tagName === 'FORM') box.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      else box.querySelector('button').click();
+      setTimeout(function () {
+        document.removeEventListener('formcatch:lead', onLead);
+        var ok = !!got && ['name', 'phone', 'email'].every(function (k) { return got[k] === expect[k]; });
+        if (ok) passed++;
+        window.formcatchResults.push({ ok: ok, expect: expect, got: got });
+        show(box, (ok ? '✅ ' : '❌ ') + 'Скрипт нашёл: ' + JSON.stringify(got) +
+          (ok ? '' : '\nОжидали: ' + JSON.stringify(expect)), ok);
+        next();
+      }, 50);
+    }
+    // Даём скрипту загрузиться (defer)
+    setTimeout(next, 100);
+  });
+</script>
+<script src="/widget/formcatch.js" data-site="test-site" data-endpoint="none" defer></script>
+</body>
+</html>

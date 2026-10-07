@@ -42,6 +42,15 @@ function str(v: unknown, max: number): string {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+const ROLES = new Set(['name', 'phone', 'email']);
+const NAME_RE = /^\p{L}[\p{L} .'’-]*$/u;
+const PHONE_RE = /^\+?[\d\s().-]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function valid(v: string, re: RegExp, extra: (v: string) => boolean = () => true): string {
+  return v && re.test(v) && extra(v) ? v : '';
+}
+
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -67,14 +76,30 @@ Deno.serve(async (req) => {
 
   const fields = (lead.fields as Record<string, unknown>[])
     .slice(0, MAX_FIELDS)
-    .map((f) => ({
-      label: str(f?.label, 100),
-      name: str(f?.name, 100),
-      type: str(f?.type, 20),
-      value: str(f?.value, 1000),
-    }))
+    .map((f) => {
+      const field: Record<string, string> = {
+        label: str(f?.label, 100),
+        name: str(f?.name, 100),
+        type: str(f?.type, 20),
+        value: str(f?.value, 1000),
+      };
+      const role = str(f?.role, 10);
+      if (ROLES.has(role)) field.role = role;
+      return field;
+    })
     .filter((f) => f.value);
   if (!fields.length) return reply(400, 'empty');
+
+  // Имя / телефон / email, которые угадал скрипт. Берём, только если формат правильный.
+  const c = (lead.contact ?? {}) as Record<string, unknown>;
+  const contact = {
+    name: valid(str(c.name, 100), NAME_RE),
+    phone: valid(str(c.phone, 40), PHONE_RE, (v) => {
+      const digits = v.replace(/\D/g, '').length;
+      return digits >= 7 && digits <= 15;
+    }),
+    email: valid(str(c.email, 200), EMAIL_RE),
+  };
 
   // 2. Ловушка для ботов: не было реальных действий человека или слишком быстро
   if (lead.human !== true || typeof lead.tp !== 'number' || lead.tp < MIN_TIME_ON_PAGE) {
@@ -101,6 +126,7 @@ Deno.serve(async (req) => {
     p_title: str(lead.title, 200),
     p_kind: str(lead.kind, 20),
     p_fields: fields,
+    p_contact: contact,
   });
 
   if (error) {
