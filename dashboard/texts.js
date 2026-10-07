@@ -85,6 +85,7 @@ const RU = {
   fallbackReset: 'Я убрал формы с сайта — включить кнопку',
   deleteSite: 'Удалить сайт',
   deleteConfirm: 'Удалить «{name}» и все его заявки? Это нельзя отменить.',
+  deleteYes: 'Да, удалить',
   actionError: 'Не получилось: {error}'
 };
 

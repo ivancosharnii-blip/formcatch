@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сайт владельца — тест кабинета</title>
+<style>
+  body { margin: 0; padding: 24px 16px; font: 16px/1.5 system-ui, sans-serif; background: #f7f3fb; color: #1d1f24; }
+  main { max-width: 640px; margin: 0 auto; }
+  label { display: block; margin-bottom: 10px; font-size: 14px; }
+  input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px 11px; border: 1px solid #c9cdd4; border-radius: 8px; font: inherit; }
+  button { padding: 10px 18px; border: 0; border-radius: 8px; background: #2f6fed; color: #fff; font: inherit; cursor: pointer; }
+  .ok { color: #1a7f37; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Сайт владельца</h1>
+  <p><i>Тест кабинета (этап 6): эта страница изображает сайт, на который владелец вставил код из кабинета.
+    ID сайта берётся из адреса: <code>?site=ID</code>. Откройте её с <code>localhost</code> и с <code>127.0.0.1</code> — это два разных «домена».</i></p>
+  <form id="f">
+    <label>Ваше имя <input name="name" autocomplete="name"></label>
+    <label>Телефон <input name="phone" type="tel"></label>
+    <button>Записаться</button>
+    <p class="ok" id="ok" hidden>Спасибо, мы перезвоним!</p>
+  </form>
+</main>
+<script>
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    document.getElementById('ok').hidden = false;
+  });
+  // То же, что вставка кода: <script src="…/formcatch.js" data-site="ID" defer>
+  var id = new URLSearchParams(location.search).get('site');
+  if (id) {
+    var s = document.createElement('script');
+    s.src = '/widget/formcatch.js';
+    s.setAttribute('data-site', id);
+    document.body.appendChild(s);
+  }
+</script>
+</body>
+</html>

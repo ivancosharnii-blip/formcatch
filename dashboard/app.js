@@ -30,9 +30,18 @@ function show(...nodes) {
   app.replaceChildren(...nodes);
 }
 
+// Сообщение об ошибке внизу экрана (вместо alert — его блокируют некоторые браузеры)
 function fail(error) {
   console.error(error);
-  alert(t('actionError', { error: error?.message || error }));
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = h('div', { id: 'toast', class: 'toast', role: 'alert' });
+    document.body.append(toast);
+  }
+  toast.textContent = t('actionError', { error: error?.message || error });
+  toast.hidden = false;
+  clearTimeout(fail.timer);
+  fail.timer = setTimeout(() => { toast.hidden = true; }, 6000);
 }
 
 function duration(ms) {
@@ -162,7 +171,7 @@ async function renderSites() {
   }
 
   const list = sites.length
-    ? h('div', { class: 'sites' }, sites.map((s, i) => h('a', { class: 'site', href: '#/site/' + s.id },
+    ? h('div', { class: 'sites' }, sites.map((s, i) => h('a', { class: 'site', href: '#/site/' + s.id, 'aria-label': s.name + ' — ' + (s.domain || t('notConnected')) },
       h('div', {},
         h('div', { class: 'site-name' }, s.name),
         h('div', { class: 'site-meta' }, s.domain || t('notConnected')),
@@ -336,17 +345,36 @@ function settingsCard(site) {
         },
       }, t('fallbackReset')) : null,
     ),
-    h('div', { class: 'setting' },
-      h('button', {
-        type: 'button', class: 'btn danger', onclick: async () => {
-          if (!confirm(t('deleteConfirm', { name: site.name }))) return;
-          const { error } = await sb.from('sites').delete().eq('id', site.id);
-          if (error) return fail(error);
-          location.hash = '#/';
-        },
-      }, t('deleteSite')),
-    ),
+    deleteBlock(site),
   );
+}
+
+// Удаление в два шага: «Удалить сайт» → «Точно? Да / Нет»
+function deleteBlock(site) {
+  const box = h('div', { class: 'setting' });
+  function ask() {
+    box.replaceChildren(
+      h('p', { role: 'alert' }, t('deleteConfirm', { name: site.name })),
+      h('div', { class: 'alert-actions' },
+        h('button', {
+          type: 'button', class: 'btn danger', onclick: async (e) => {
+            e.currentTarget.disabled = true;
+            const { error } = await sb.from('sites').delete().eq('id', site.id);
+            if (error) { reset(true); return fail(error); }
+            location.hash = '#/';
+          },
+        }, t('deleteYes')),
+        h('button', { type: 'button', class: 'btn ghost', onclick: () => reset(true) }, t('cancel')),
+      ),
+    );
+    box.querySelector('.btn.ghost').focus();
+  }
+  function reset(focus) {
+    box.replaceChildren(h('button', { type: 'button', class: 'btn danger', onclick: ask }, t('deleteSite')));
+    if (focus) box.firstChild.focus();
+  }
+  reset();
+  return box;
 }
 
 // --- Навигация и вход ---
