@@ -1,7 +1,7 @@
 // Formcatch — общее для всех экранов кабинета: подключение к базе и мелкие помощники.
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { t } from './texts.js';
+import { t, locale } from './texts.js';
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true },
@@ -49,7 +49,7 @@ export function fail(error) {
 }
 
 export function formatDate(iso) {
-  return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 }
 
 export async function loadSites() {

@@ -1,5 +1,5 @@
 // Formcatch — экран «Заявки»: одна таблица со всех сайтов, статистика, график, Excel.
-import { t } from './texts.js';
+import { t, locale } from './texts.js';
 import { sb, h, s, show, fail, formatDate, loadSites } from './core.js';
 
 const PAGE = 50;            // строк таблицы за раз
@@ -17,14 +17,14 @@ function dayKey(date) {
 
 function shortDay(key) {
   const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+  return new Date(y, m - 1, d).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }).replace('.', '');
 }
 
 // Коротко для таблицы: «7 окт, 21:50»
 function formatShort(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '') + ', ' +
-    d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' }).replace('.', '') + ', ' +
+    d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function startOfDay(date) {
@@ -175,7 +175,7 @@ export async function renderLeads() {
 }
 
 function tile(label, value) {
-  return h('div', { class: 'tile' }, h('div', { class: 'tile-label' }, label), h('div', { class: 'tile-value' }, value.toLocaleString('ru-RU')));
+  return h('div', { class: 'tile' }, h('div', { class: 'tile-label' }, label), h('div', { class: 'tile-value' }, value.toLocaleString(locale())));
 }
 
 // Строка заявки + скрытая строка со всеми полями

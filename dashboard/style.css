@@ -99,7 +99,8 @@ details[open] summary { margin-bottom: 12px; }
 
 /* Навигация */
 .top { flex-wrap: wrap; }
-.nav { display: flex; gap: 4px; margin-right: auto; margin-left: 16px; }
+.nav { display: flex; gap: 4px; margin-left: 16px; }
+.lang { margin-left: auto; min-width: 44px; }
 .nav a { padding: 6px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; }
 .nav a:hover { background: var(--bg); color: var(--text); }
 .nav a[aria-current="page"] { background: var(--bg); color: var(--text); }

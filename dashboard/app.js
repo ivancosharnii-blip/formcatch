@@ -1,6 +1,6 @@
 // Formcatch — кабинет владельца: вход через Google, заявки, сайты, подключение.
 import { WIDGET_URL } from './config.js';
-import { t } from './texts.js';
+import { t, getLang, setLang } from './texts.js';
 import { sb, h, show, fail, formatDate, loadSites } from './core.js';
 import { renderLeads, openSiteLeads } from './leads.js';
 
@@ -356,9 +356,24 @@ function setUser(u) {
   if (changed) route();
 }
 
-document.getElementById('logout').textContent = t('logout');
-document.getElementById('nav-leads').textContent = t('navLeads');
-document.getElementById('nav-sites').textContent = t('navSites');
+// Тексты шапки и переключатель языка RU / EN
+function applyLang() {
+  document.documentElement.lang = t('htmlLang');
+  document.title = t('pageTitle');
+  document.getElementById('logout').textContent = t('logout');
+  document.getElementById('nav-leads').textContent = t('navLeads');
+  document.getElementById('nav-sites').textContent = t('navSites');
+  const sw = document.getElementById('lang');
+  sw.textContent = t('langSwitch');
+  sw.setAttribute('aria-label', t('langSwitchLabel'));
+  sw.setAttribute('lang', getLang() === 'ru' ? 'en' : 'ru');
+}
+applyLang();
+document.getElementById('lang').addEventListener('click', () => {
+  setLang(getLang() === 'ru' ? 'en' : 'ru');
+  applyLang();
+  route();
+});
 document.getElementById('logout').addEventListener('click', async () => {
   await sb.auth.signOut();
   location.hash = '#/';
