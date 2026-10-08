@@ -33,7 +33,7 @@
   var DEBUG = !!(script && script.hasAttribute('data-debug'));
   var FALLBACK = !(script && script.getAttribute('data-fallback') === 'off'); // запасная мини-форма
   // Политика конфиденциальности — для строки согласия под мини-формой
-  var HOME = 'https://formcatch.vercel.app';
+  var HOME = 'https://formcatch-woad.vercel.app';
   try { if (/\.vercel\.app$/.test(new URL(script.src).hostname)) HOME = new URL(script.src).origin; } catch (e) {}
 
   if (!SITE) {

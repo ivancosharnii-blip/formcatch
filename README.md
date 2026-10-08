@@ -7,7 +7,7 @@ No form rebuilding, no developer, connection in under a minute. Works on Tilda, 
 Ничего не переделываешь, программист не нужен, подключение меньше чем за минуту.
 
 ```html
-<script src="https://formcatch.vercel.app/formcatch.js" data-site="SITE_ID" defer></script>
+<script src="https://formcatch-woad.vercel.app/formcatch.js" data-site="SITE_ID" defer></script>
 ```
 
 ## Как устроено
