@@ -1,48 +1,13 @@
-// Formcatch — кабинет владельца: вход через Google, сайты, подключение.
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SUPABASE_URL, SUPABASE_KEY, WIDGET_URL } from './config.js';
+// Formcatch — кабинет владельца: вход через Google, заявки, сайты, подключение.
+import { WIDGET_URL } from './config.js';
 import { t } from './texts.js';
+import { sb, h, show, fail, formatDate, loadSites } from './core.js';
+import { renderLeads, openSiteLeads } from './leads.js';
 
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true },
-});
-
-const app = document.getElementById('app');
 let user = null;
 let poll = null;          // опрос «подключился ли сайт»
 
 // --- Мелкие помощники ---
-
-// Создать элемент: h('div', { class: 'x', onclick: fn }, 'текст', child)
-function h(tag, attrs, ...children) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs || {})) {
-    if (v == null || v === false) continue;
-    if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else if (k === 'class') el.className = v;
-    else el.setAttribute(k, v === true ? '' : v);
-  }
-  for (const c of children.flat()) if (c != null && c !== false) el.append(c instanceof Node ? c : String(c));
-  return el;
-}
-
-function show(...nodes) {
-  app.replaceChildren(...nodes);
-}
-
-// Сообщение об ошибке внизу экрана (вместо alert — его блокируют некоторые браузеры)
-function fail(error) {
-  console.error(error);
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = h('div', { id: 'toast', class: 'toast', role: 'alert' });
-    document.body.append(toast);
-  }
-  toast.textContent = t('actionError', { error: error?.message || error });
-  toast.hidden = false;
-  clearTimeout(fail.timer);
-  fail.timer = setTimeout(() => { toast.hidden = true; }, 6000);
-}
 
 function duration(ms) {
   const s = Math.max(1, Math.round(ms / 1000));
@@ -53,10 +18,6 @@ function duration(ms) {
   }
   if (s < 86400) return t('hour', { n: Math.floor(s / 3600) }) + ' ' + t('min', { n: Math.floor((s % 3600) / 60) });
   return '';
-}
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 }
 
 function snippet(site) {
@@ -72,14 +33,6 @@ function dismiss(siteId, domain) {
 }
 
 // --- Данные ---
-
-async function loadSites() {
-  const { data, error } = await sb.from('sites')
-    .select('id, name, domain, form_found, connected_at, created_at')
-    .order('created_at');
-  if (error) throw error;
-  return data;
-}
 
 async function countLeads(siteId) {
   const { count, error } = await sb.from('leads')
@@ -202,7 +155,7 @@ async function renderSite(id) {
   try {
     const sites = await loadSites();
     site = sites.find((s) => s.id === id);
-    if (!site) { location.hash = '#/'; return; }
+    if (!site) { location.hash = '#/sites'; return; }
     [count, domains, last] = await Promise.all([
       countLeads(id),
       loadNewDomains(sites),
@@ -215,7 +168,7 @@ async function renderSite(id) {
   }
 
   show(
-    h('a', { class: 'back', href: '#/' }, t('back')),
+    h('a', { class: 'back', href: '#/sites' }, t('back')),
     h('h1', {}, site.name),
     ...(domains[id] || []).map((d) => domainAlert(site, d)),
     connectCard(site),
@@ -224,6 +177,7 @@ async function renderSite(id) {
       h('p', { class: 'muted' }, count
         ? t('leadsSummary', { count, date: formatDate(last.data[0].created_at) })
         : t('leadsNone')),
+      count ? h('a', { class: 'btn ghost', href: '#/', onclick: () => openSiteLeads(id) }, t('openSiteLeads')) : null,
     ),
     settingsCard(site),
   );
@@ -361,7 +315,7 @@ function deleteBlock(site) {
             e.currentTarget.disabled = true;
             const { error } = await sb.from('sites').delete().eq('id', site.id);
             if (error) { reset(true); return fail(error); }
-            location.hash = '#/';
+            location.hash = '#/sites';
           },
         }, t('deleteYes')),
         h('button', { type: 'button', class: 'btn ghost', onclick: () => reset(true) }, t('cancel')),
@@ -381,10 +335,17 @@ function deleteBlock(site) {
 
 function route() {
   if (poll) { clearInterval(poll); poll = null; }
-  if (!user) return renderLogin();
   const m = location.hash.match(/^#\/site\/([\w-]+)$/);
+  const page = !user ? '' : m || location.hash === '#/sites' ? 'sites' : 'leads';
+  document.getElementById('nav').hidden = !user;
+  for (const a of document.querySelectorAll('#nav a')) {
+    if (a.dataset.page === page) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
+  if (!user) return renderLogin();
   if (m) renderSite(m[1]);
-  else renderSites();
+  else if (page === 'sites') renderSites();
+  else renderLeads();
 }
 
 function setUser(u) {
@@ -396,6 +357,8 @@ function setUser(u) {
 }
 
 document.getElementById('logout').textContent = t('logout');
+document.getElementById('nav-leads').textContent = t('navLeads');
+document.getElementById('nav-sites').textContent = t('navSites');
 document.getElementById('logout').addEventListener('click', async () => {
   await sb.auth.signOut();
   location.hash = '#/';
