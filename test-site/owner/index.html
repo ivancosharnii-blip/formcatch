@@ -31,10 +31,12 @@
     document.getElementById('ok').hidden = false;
   });
   // То же, что вставка кода: <script src="…/formcatch.js" data-site="ID" defer>
-  var id = new URLSearchParams(location.search).get('site');
+  // ?live=1 — скрипт с опубликованного сайта (как у настоящих владельцев), иначе — локальная копия
+  var params = new URLSearchParams(location.search);
+  var id = params.get('site');
   if (id) {
     var s = document.createElement('script');
-    s.src = '/widget/formcatch.js';
+    s.src = params.get('live') ? 'https://formcatch-woad.vercel.app/formcatch.js' : '/widget/formcatch.js';
     s.setAttribute('data-site', id);
     document.body.appendChild(s);
   }
