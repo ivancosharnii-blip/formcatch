@@ -8,6 +8,7 @@ const RU = {
   pageTitle: 'Formcatch — кабинет',
   langSwitch: 'EN',
   langSwitchLabel: 'Switch to English',
+  privacy: 'Политика конфиденциальности',
   appTagline: 'Все заявки с ваших сайтов — в одной таблице',
   loginLead: 'Одна строка кода на сайте — и все формы сами собирают заявки сюда. Без программиста.',
   loginGoogle: 'Войти через Google',
@@ -143,6 +144,7 @@ const EN = {
   pageTitle: 'Formcatch — dashboard',
   langSwitch: 'RU',
   langSwitchLabel: 'Переключить на русский',
+  privacy: 'Privacy policy',
 
   appTagline: 'All leads from your websites in one table',
   loginLead: 'One line of code on your site, and every form sends its leads here. No developer needed.',

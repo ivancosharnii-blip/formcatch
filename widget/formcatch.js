@@ -18,7 +18,7 @@
   if (window.__formcatchLoaded) return; // защита от двойного подключения
   window.__formcatchLoaded = true;
 
-  var VERSION = '0.4.0';
+  var VERSION = '0.4.1';
   var MAX_FIELDS = 50;
   var MAX_VALUE = 1000;
   var DEDUP_MS = 2000;
@@ -32,6 +32,9 @@
   if (ENDPOINT === 'none') ENDPOINT = ''; // для тестов: ничего никуда не отправлять
   var DEBUG = !!(script && script.hasAttribute('data-debug'));
   var FALLBACK = !(script && script.getAttribute('data-fallback') === 'off'); // запасная мини-форма
+  // Политика конфиденциальности — для строки согласия под мини-формой
+  var HOME = 'https://formcatch.vercel.app';
+  try { if (/\.vercel\.app$/.test(new URL(script.src).hostname)) HOME = new URL(script.src).origin; } catch (e) {}
 
   if (!SITE) {
     if (window.console) console.warn('[Formcatch] нет атрибута data-site — скрипт выключен');
@@ -398,12 +401,14 @@
       open: 'Оставить заявку', title: 'Оставьте заявку — мы свяжемся с вами',
       name: 'Ваше имя', phone: 'Телефон', send: 'Отправить', close: 'Закрыть',
       noName: 'Укажите имя', badPhone: 'Проверьте номер телефона',
+      consent: 'Нажимая «Отправить», вы соглашаетесь с ', consentLink: 'политикой конфиденциальности', privacy: '/privacy.html',
       thanks: 'Спасибо! Заявка отправлена, скоро с вами свяжутся.'
     },
     en: {
       open: 'Leave a request', title: 'Leave your details and we will contact you',
       name: 'Your name', phone: 'Phone', send: 'Send', close: 'Close',
       noName: 'Please enter your name', badPhone: 'Please check the phone number',
+      consent: 'By sending, you agree to the ', consentLink: 'privacy policy', privacy: '/privacy.html#en',
       thanks: 'Thank you! Your request has been sent.'
     }
   };
@@ -428,6 +433,8 @@
     '.err{min-height:20px;margin:0 0 8px;color:#c62828;font-size:14px}' +
     '.send{width:100%;height:46px;border:0;border-radius:10px;background:#1d1f24;color:#fff;font-size:16px;font-weight:600;cursor:pointer}' +
     '.thanks{margin:0;font-size:16px;line-height:1.45}' +
+    '.consent{margin:10px 0 0;font-size:12px;line-height:1.4;color:#5b616e}' +
+    '.consent a{color:inherit;text-decoration:underline}' +
     '[hidden]{display:none!important}';
 
   var fallbackHost = null;
@@ -449,6 +456,7 @@
             '<label><span class="l-phone"></span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="40"></label>' +
             '<p class="err" role="alert"></p>' +
             '<button type="submit" class="send"></button>' +
+            '<p class="consent"><span class="c-text"></span><a target="_blank" rel="noopener"></a></p>' +
           '</form>' +
           '<p class="thanks" hidden></p>' +
         '</div>' +
@@ -463,6 +471,9 @@
     $('.l-phone').textContent = t.phone;
     $('.send').textContent = t.send;
     $('.thanks').textContent = t.thanks;
+    $('.c-text').textContent = t.consent;
+    $('.consent a').textContent = t.consentLink;
+    $('.consent a').href = HOME + t.privacy;
     $('.x').setAttribute('aria-label', t.close);
     openBtn.textContent = t.open;
 

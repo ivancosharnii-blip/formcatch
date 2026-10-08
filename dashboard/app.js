@@ -363,6 +363,9 @@ function applyLang() {
   document.getElementById('logout').textContent = t('logout');
   document.getElementById('nav-leads').textContent = t('navLeads');
   document.getElementById('nav-sites').textContent = t('navSites');
+  const privacy = document.getElementById('privacy-link');
+  privacy.textContent = t('privacy');
+  privacy.href = 'privacy.html' + (getLang() === 'en' ? '#en' : '');
   const sw = document.getElementById('lang');
   sw.textContent = t('langSwitch');
   sw.setAttribute('aria-label', t('langSwitchLabel'));

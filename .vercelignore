@@ -1,0 +1,6 @@
+# На Vercel нужны только кабинет, скрипт и сборка — остальное не отправляем
+test-site/
+supabase/
+public/
+.claude/
+PROJECT.md

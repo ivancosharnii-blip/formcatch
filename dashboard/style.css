@@ -147,6 +147,9 @@ table.leads { width: 100%; border-collapse: collapse; font-size: 15px; }
 .details p { margin: 0; font-size: 14px; word-break: break-all; }
 .more { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
+.foot { max-width: 860px; margin: 0 auto; padding: 0 16px 32px; font-size: 14px; }
+.foot a { color: var(--muted); }
+
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 600; box-shadow: 0 6px 20px rgba(0, 0, 0, .2); z-index: 10; }
 
 @media (max-width: 560px) {
