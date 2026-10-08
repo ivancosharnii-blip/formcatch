@@ -32,19 +32,19 @@
 
   <section class="case">
     <h2>1. Правильная разметка</h2>
-    <form data-expect='{"name":"Анна","phone":"+7 900 123-45-67","email":"anna@mail.ru"}'>
+    <form data-expect='{"name":"Анна","phone":"+7 900 123-45-67","email":"anna@example.com"}'>
       <label>Имя <input type="text" name="name" value="Анна"></label>
       <label>Телефон <input type="tel" name="phone" value="+7 900 123-45-67"></label>
-      <label>Email <input type="email" name="email" value="anna@mail.ru"></label>
+      <label>Email <input type="email" name="email" value="anna@example.com"></label>
       <button>Отправить</button>
     </form>
   </section>
 
   <section class="case">
     <h2>2. Как на Tilda: телефон в скрытом поле с кодом страны</h2>
-    <form data-expect='{"name":"Иван","phone":"+373 7011-1122","email":"ivan@gmail.com"}'>
+    <form data-expect='{"name":"Иван","phone":"+373 7011-1122","email":"ivan@example.com"}'>
       <label>Ваше имя <input type="text" name="Name" value="Иван"></label>
-      <label>Email <input type="text" name="Email" value="ivan@gmail.com"></label>
+      <label>Email <input type="text" name="Email" value="ivan@example.com"></label>
       <label>Телефон <input type="tel" name="tildaspec-phone-part[]" value="7011-1122"></label>
       <input type="hidden" name="tildaspec-phone-part[]-iso" value="md">
       <input type="hidden" name="Phone" value="+373 7011-1122">
@@ -54,9 +54,9 @@
 
   <section class="case">
     <h2>3. Как в WordPress (Contact Form 7)</h2>
-    <form data-expect='{"name":"Мария","phone":"8 (912) 555-44-33","email":"maria@yandex.ru"}'>
+    <form data-expect='{"name":"Мария","phone":"8 (912) 555-44-33","email":"maria@example.com"}'>
       <label>Ваше имя <input type="text" name="your-name" value="Мария"></label>
-      <label>Ваш email <input type="email" name="your-email" value="maria@yandex.ru"></label>
+      <label>Ваш email <input type="email" name="your-email" value="maria@example.com"></label>
       <label>Телефон <input type="tel" name="your-tel" value="8 (912) 555-44-33"></label>
       <label>Сообщение <textarea name="your-message">Хочу записаться на пробное занятие</textarea></label>
       <button>Отправить</button>
@@ -65,20 +65,20 @@
 
   <section class="case">
     <h2>4. Поля field_1, field_2, field_3 — но подписи есть</h2>
-    <form data-expect='{"name":"Олег","phone":"89001112233","email":"oleg@inbox.ru"}'>
+    <form data-expect='{"name":"Олег","phone":"89001112233","email":"oleg@example.com"}'>
       <label>Как к вам обращаться? <input type="text" name="field_1" value="Олег"></label>
       <label>Номер телефона <input type="text" name="field_2" value="89001112233"></label>
-      <label>Электронная почта <input type="text" name="field_3" value="oleg@inbox.ru"></label>
+      <label>Электронная почта <input type="text" name="field_3" value="oleg@example.com"></label>
       <button>Отправить</button>
     </form>
   </section>
 
   <section class="case">
     <h2>5. Подписей нет вообще — угадываем по значению</h2>
-    <form data-expect='{"name":"Светлана","phone":"+7 (921) 000-11-22","email":"sveta@mail.ru"}'>
+    <form data-expect='{"name":"Светлана","phone":"+7 (921) 000-11-22","email":"sveta@example.com"}'>
       <input type="text" name="field_1" value="Светлана">
       <input type="text" name="field_2" value="+7 (921) 000-11-22">
-      <input type="text" name="field_3" value="sveta@mail.ru">
+      <input type="text" name="field_3" value="sveta@example.com">
       <button>Отправить</button>
     </form>
   </section>
@@ -90,7 +90,7 @@
       <label>Номер заказа <input type="text" name="order" value="12345678"></label>
       <label>Логин <input type="text" name="login" value="ivan"></label>
       <label>Город <input type="text" name="city" value="Москва"></label>
-      <label>Комментарий <textarea name="comment">Пишите на test@mail.ru или звоните +7 900 000-00-00</textarea></label>
+      <label>Комментарий <textarea name="comment">Пишите на test@example.com или звоните +7 900 000-00-00</textarea></label>
       <button>Отправить</button>
     </form>
   </section>
@@ -127,10 +127,10 @@
 
   <section class="case">
     <h2>10. Только autocomplete, названия полей бессмысленные</h2>
-    <form data-expect='{"name":"Елена","phone":"+380 67 123 4567","email":"elena@ukr.net"}'>
+    <form data-expect='{"name":"Елена","phone":"+380 67 123 4567","email":"elena@example.com"}'>
       <input type="text" name="x1" autocomplete="name" value="Елена">
       <input type="text" name="x2" autocomplete="tel" value="+380 67 123 4567">
-      <input type="text" name="x3" autocomplete="email" value="elena@ukr.net">
+      <input type="text" name="x3" autocomplete="email" value="elena@example.com">
       <button>Отправить</button>
     </form>
   </section>
